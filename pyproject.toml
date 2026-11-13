@@ -1,0 +1,77 @@
+[project]
+name = "taller-hpo"
+version = "0.1.0"
+description = "Búsqueda de hiperparámetros con método: Optuna, diseño de experimentos y honestidad estadística para modelos de investigación"
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+# El taller entrena siempre en una tarjeta de video NVIDIA, así que torch (con CUDA 13)
+# y xgboost (con CUDA) son dependencias fijas. scikit-learn sirve de referencia en las
+# pruebas, que comparan contra él los resultados de la tarjeta de video.
+dependencies = [
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.3",
+    "optuna>=5.0,<6",
+    "optuna-dashboard>=0.21",
+    "scikit-learn>=1.9.1",
+    "scipy>=1.18.1",
+    "threadpoolctl>=3.6",
+    "torch>=2.14",
+    "xgboost>=3.4",
+]
+
+[project.optional-dependencies]
+# Driver de PostgreSQL para el modo escalado (varios workers sobre el mismo estudio).
+postgres = [
+    "psycopg[binary]>=3.2",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.8,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+required-version = ">=0.12"
+# SQLAlchemy queda en 2.0.x hasta que Optuna declare soporte para 2.1. Revísalo en cada
+# `uv lock --upgrade`.
+constraint-dependencies = ["sqlalchemy<2.1"]
+# Solo las plataformas donde hay tarjetas de video NVIDIA con ruedas de torch
+# para CUDA 13: Linux (incluido WSL2) y Windows, en x86_64.
+environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+
+# torch sale del índice de PyTorch para CUDA 13, no de PyPI.
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# Explícitas para que el resultado no dependa de los defaults de cada versión de ruff.
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+# Techo por test (pytest-timeout): un dashboard o un plt.show() colgado no debe
+# bloquear la corrida entera.
+timeout = 120
+markers = [
+    "docker: necesita Docker con el daemon activo (se salta si no está)",
+    "postgres: necesita un PostgreSQL alcanzable en TALLER_POSTGRES_URL (se salta si no está)",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-timeout>=2.4.0",
+    "ruff>=0.16.9",
+]

@@ -1,0 +1,4 @@
+# Los scripts de shell y el Dockerfile se rompen con finales de línea CRLF, así que
+# siempre van con LF aunque el repo se edite en Windows.
+*.sh text eol=lf
+Dockerfile text eol=lf

@@ -1,0 +1,43 @@
+# Lo que genera Python
+__pycache__/
+*.py[oc]
+*.egg-info/
+build/
+dist/
+wheels/
+
+# Entornos virtuales
+.venv
+
+# Caches de herramientas
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+.coverage
+htmlcov/
+
+# Estudios y resultados: se regeneran corriendo los pasos. Las carpetas existen
+# (.gitkeep) para que Docker no las cree como root.
+estudios/*
+!estudios/.gitkeep
+resultados/*
+!resultados/.gitkeep
+
+# Secretos locales, como la contraseña de PostgreSQL del anexo
+.env
+.env.*
+
+# Tu carpeta personal: notas y pruebas sueltas que no van al repo
+local/
+
+# Editores y sistema operativo
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+._*
+Thumbs.db
+desktop.ini
+*:Zone.Identifier

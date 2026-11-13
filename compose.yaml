@@ -1,0 +1,96 @@
+# `docker compose run --rm taller` corre las pruebas dentro del contenedor con la
+# tarjeta de video.
+#
+# Perfil "paralelo" (`docker compose --profile paralelo ...` o scripts/paralelo_docker.sh):
+# PostgreSQL, un servicio "preparar" que crea el estudio una sola vez y termina, y N
+# réplicas de "worker" sobre el mismo estudio. "preparar" existe porque dos procesos que
+# crean a la vez el estudio en un PostgreSQL nuevo compiten dentro de RDBStorage (ver el
+# docstring de pasos/anexo_paralelo.py). El perfil no publica ningún puerto, y
+# TALLER_PG_PASSWORD no vive en ningún archivo del repo: la genera
+# scripts/paralelo_docker.sh para cada corrida.
+#
+# "taller" y "worker" salen del mismo Dockerfile: "taller" agrega el grupo dev (pytest y
+# ruff) para correr la suite, y "worker" y "preparar" comparten la imagen sin él.
+services:
+  taller:
+    build:
+      context: .
+      target: taller
+    image: taller-hpo:cu130
+    volumes:
+      - ./estudios:/app/estudios
+      - ./resultados:/app/resultados
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  postgres:
+    profiles: [paralelo]
+    image: postgres:18
+    environment:
+      POSTGRES_USER: taller
+      POSTGRES_DB: taller
+      # Default vacío a propósito: Compose interpola todo el archivo antes de filtrar
+      # por perfil, y con ":?" también fallaría `docker compose run --rm taller`. La
+      # validación vive en scripts/paralelo_docker.sh, que siempre define la variable.
+      POSTGRES_PASSWORD: ${TALLER_PG_PASSWORD:-}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taller -d taller"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  # Crea o reabre el estudio una vez, sin optimizar, y termina antes de que arranque
+  # el primer "worker", así que la carrera al crear el esquema nunca ocurre.
+  preparar:
+    profiles: [paralelo]
+    build:
+      context: .
+      target: worker
+    image: taller-hpo-worker:cu130
+    command: ["python", "pasos/anexo_paralelo.py", "--preparar"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      TALLER_DESTINO: postgresql+psycopg://taller:${TALLER_PG_PASSWORD:-}@postgres:5432/taller
+      TALLER_ESTUDIO:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  worker:
+    profiles: [paralelo]
+    build:
+      context: .
+      target: worker
+    image: taller-hpo-worker:cu130
+    command: ["python", "pasos/anexo_paralelo.py"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      preparar:
+        condition: service_completed_successfully
+    environment:
+      TALLER_DESTINO: postgresql+psycopg://taller:${TALLER_PG_PASSWORD:-}@postgres:5432/taller
+      # Sin valor: si la variable no está definida al correr `docker compose`, tampoco
+      # lo está dentro del contenedor y anexo_paralelo.py usa su default. TALLER_WORKER
+      # no va aquí: anexo_paralelo.py deriva un id estable del hostname de cada réplica.
+      TALLER_ESTUDIO:
+      TALLER_N_TOTAL:
+      PRESUPUESTO:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

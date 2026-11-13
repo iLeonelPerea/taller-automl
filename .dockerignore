@@ -1,0 +1,22 @@
+# Fuera de la imagen: lo oculto (salvo lo que el taller usa), las notas sueltas de la
+# raíz, lo personal, lo que se genera y la basura de editores y sistemas operativos
+**/.*
+!.github
+!.python-version
+*.md
+!README.md
+local
+estudios
+resultados
+dist
+build
+htmlcov
+**/__pycache__
+**/*.egg-info
+**/*.swp
+**/*~
+**/~*
+**/*.sync-conflict-*
+**/*:Zone.Identifier
+**/Thumbs.db
+**/desktop.ini
